@@ -1,7 +1,7 @@
 cron:
 - description: vim.org scripts
   url: /vimorg_scripts
-  schedule: every 30 minutes
+  schedule: every 1 hours
 - description: colors
   url: /colors
-  schedule: every 3 hours
+  schedule: every 1 hours

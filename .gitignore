@@ -1,6 +1,7 @@
 *.pyc
 *.swp
 const.py
+consts.txt
 twython
 tweepy
 requests

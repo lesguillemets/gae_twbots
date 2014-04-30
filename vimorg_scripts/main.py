@@ -12,6 +12,7 @@ import urllib2
 import xml.etree.ElementTree as el
 import contextlib
 from collections import namedtuple
+import logging
 
 Scriptdata = namedtuple('Script', 'title url')
 
@@ -47,8 +48,12 @@ class Bot(object):
     def fetch_script_updates(self):
         if not self.lasturl:
             self.fetch_last_update()
-        with contextlib.closing(urllib2.urlopen(self.rss_url)) as rss:
-            rssdata = rss.read()
+        try:
+            with contextlib.closing(urllib2.urlopen(self.rss_url)) as rss:
+                rssdata = rss.read()
+        except Exception as e:
+            logging.info(e.__repr__())
+            return None
         datatree = el.fromstring(rssdata)
         for item in datatree.iter('item'):
             title, link = map(lambda x : item.find(x).text, ['title','link'])
@@ -72,5 +77,6 @@ class Bot(object):
             self.api.update_status(update_text)
 
 if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.DEBUG)
     bot = Bot()
     bot.make_update()

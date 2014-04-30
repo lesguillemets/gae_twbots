@@ -3,6 +3,7 @@
 
 from twython import Twython
 from colors import const
+#import const
 import numpy as np
 import PIL.Image as img
 import colorsys
