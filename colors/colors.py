@@ -9,9 +9,59 @@ import PIL.Image as img
 import colorsys
 import StringIO
 import os
+from datetime import datetime
+from datetime import timedelta
 from random import randint
 
 number_of_colours = 1094
+
+def is_morning():
+    return 6 <= (datetime.utcnow() + timedelta(hours=9)).hour <= 9
+
+class Colour(object):
+    def __init__(self, name, hexcode, url):
+        self.name = name
+        # 0-255
+        self.hexcode = hexcode
+        self.rgb = tuple(
+            int(hexcode[i:i+2],16) for i in range(0,6,2)
+        )
+        self.hsv = tuple(
+            colorsys.rgb_to_hsv(*map(lambda x: x/255.0, self.rgb)))
+        self.url = url or "https://en.wikipedia.org/wiki/{}".format(
+            name.replace(' ','_'))
+    
+    @staticmethod
+    def from_string(line):
+        name,code,url = line.strip('\n').split('\t')
+        return Colour(name, code, url)
+    
+    def to_string(self):
+        hsv_to_show = [
+            int(self.hsv[0]*360+0.5),
+            int(self.hsv[1]*100+0.5),
+            int(self.hsv[2]*100+0.5)
+        ]
+        hsv_str = "({}°, {}%, {}%)".format(*hsv_to_show)
+        text = "{name} [hex:{code}, RGB:{rgb}, HSV:{hsv}] ({link})".format(
+            name=self.name,
+            code=self.hexcode,
+            rgb=self.rgb,
+            hsv=hsv_str,
+            link=self.url)
+        return text
+
+    def to_image(self, size):
+        colordata = np.array(list(self.rgb)*(size*size),
+                             dtype=np.uint8).reshape(size,size,3)
+        colorpic = img.fromarray(colordata)
+        picdata = StringIO.StringIO()
+        colorpic.save(picdata,format='png')
+        picdata.seek(0)
+        return picdata
+
+    def is_light(self):
+        return self.hsv[2] > 0.5
 
 class ColoursBot(object):
     
@@ -21,47 +71,31 @@ class ColoursBot(object):
         try:
             self.api = Twython(keys['api_key'],keys['api_secret'],
                           keys['access_token'], keys['access_token_secret'])
-        except:
+        except Exception as e:
             print("An error occured in initialization.\n{}".format(e))
         
         self.ncolour=ncolour
         self.fileloc=fileloc
         self.size=size
+        with open(fileloc, 'r') as f:
+            self.colors = list(map(Colour.from_string,f))
+
+    def pick_colour(self):
+        if is_morning():
+            colors = list(filter(lambda c: c.is_light, self.colors))
+        else:
+            colors = self.colors
+        n_max = len(colors)
+        return colors[randint(0,n_max-1)]
     
     def update(self):
-        n = randint(0,self.ncolour-1)
-        with open(self.fileloc, 'r') as f:
-            i = 0
-            for line in f:
-                if i==n:
-                    colour = line
-                    break
-                else:
-                    i+=1
-        name,code,url = line.strip('\n').split('\t')
-        if not url:
-            url = "https://en.wikipedia.org/wiki/{}".format(
-                name.replace(' ','_'))
-        r,g,b = [int(code[i:i+2],16) for i in range(0,6,2)]
-        hsv = list(colorsys.rgb_to_hsv(r/255.0,g/255.0,b/255.0))
-        hsv[0] = int(hsv[0]*360+0.5)
-        hsv[1] = int(hsv[1]*100+0.5)
-        hsv[2] = int(hsv[2]*100+0.5)
-        hsv_str = "({}°, {}%, {}%)".format(*hsv)
-        
-        size = self.size
-        colordata = np.array([r,g,b]*(size*size), dtype=np.uint8).reshape(
-            size,size,3)
-        colorpic = img.fromarray(colordata)
-        picdata = StringIO.StringIO()
-        colorpic.save(picdata,format='png')
-        picdata.seek(0)
+        c = self.pick_colour()
+        text = c.to_string()
+        picdata = c.to_image(self.size)
         # https://twython.readthedocs.org/en/latest/usage/advanced_usage.html
-        text = "{name} [hex:{code}, RGB:{rgb}, HSV:{hsv}] ({link})".format(
-            name=name, code=code, rgb=(r,g,b), hsv=hsv_str,link=url)
         self.api.update_status_with_media(
             status=text, media=picdata)
-        return (name,code,r,g,b,url)
+        return c
 
 if __name__ == "__main__":
     a = ColoursBot()
