@@ -82,7 +82,7 @@ class ColoursBot(object):
 
     def pick_colour(self):
         if is_morning():
-            colors = list(filter(lambda c: c.is_light, self.colors))
+            colors = list(filter(lambda c: c.is_light(), self.colors))
         else:
             colors = self.colors
         n_max = len(colors)
